@@ -15,6 +15,7 @@
 package build.buildfarm.common;
 
 import static java.lang.String.format;
+import java.util.logging.Logger;
 import static io.grpc.Status.Code.DEADLINE_EXCEEDED;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -31,6 +32,7 @@ import io.grpc.protobuf.StatusProto;
 import java.util.Map;
 
 public final class Actions {
+  private static final Logger logger = Logger.getLogger(Actions.class.getName());
   private Actions() {
   }
 
@@ -94,6 +96,7 @@ public final class Actions {
   }
 
   public static boolean satisfiesRequirements(Platform provider, Platform requirements) {
+    logger.fine(String.format("Checking if requirements are satisfied for %s", command));
     // string compare only
     // no duplicate names
     ImmutableSetMultimap.Builder<String, String> provisionsBuilder =
