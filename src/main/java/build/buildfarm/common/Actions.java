@@ -108,6 +108,8 @@ public final class Actions {
     for (Platform.Property property : requirements.getPropertiesList()) {
       if (!provisions.containsKey(property.getName()) ||
           !provisions.get(property.getName()).contains(property.getValue())) {
+        logger.fine(String.format("Platform.Property NOT satisfied: %s", property));
+        logger.fine(String.format("Provisioned for: %s", provisions));
         return false;
       }
     }
