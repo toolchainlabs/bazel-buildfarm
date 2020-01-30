@@ -96,7 +96,7 @@ public final class Actions {
   }
 
   public static boolean satisfiesRequirements(Platform provider, Platform requirements) {
-    logger.fine(String.format("Checking if requirements are satisfied for %s", command));
+    // disable for now : logger.fine(String.format("Checking if requirements are satisfied for %s", command));
     // string compare only
     // no duplicate names
     ImmutableSetMultimap.Builder<String, String> provisionsBuilder =
