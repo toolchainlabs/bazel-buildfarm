@@ -27,9 +27,10 @@ import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.io.InputStream;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -48,7 +49,7 @@ public final class ByteStreamHelper {
         .setResourceName(resourceName)
         .setReadOffset(offset)
         .build();
-    BlockingQueue<ByteString> queue = new LinkedBlockingQueue<ByteString>();
+    BlockingQueue<ByteString> queue = new ArrayBlockingQueue<>(1);
     ByteStringQueueInputStream inputStream = new ByteStringQueueInputStream(queue);
     StreamObserver<ReadResponse> responseObserver = new StreamObserver<ReadResponse>() {
       long requestOffset = offset;
@@ -86,22 +87,26 @@ public final class ByteStreamHelper {
         } else if (retryService == null || nextDelayMillis < 0 || !isRetriable.test(status)) {
           inputStream.setException(t);
         } else {
-          ListenableFuture<?> schedulingResult =
-              retryService.schedule(
-                  this::retryRequest,
-                  nextDelayMillis,
-                  TimeUnit.MILLISECONDS);
-          schedulingResult.addListener(
-              () -> {
-                try {
-                  schedulingResult.get();
-                } catch (ExecutionException e) {
-                  inputStream.setException(e.getCause());
-                } catch (InterruptedException e) {
-                  inputStream.setException(e);
-                }
-              },
-              MoreExecutors.directExecutor());
+          try {
+            ListenableFuture<?> schedulingResult =
+                retryService.schedule(
+                    this::retryRequest,
+                    nextDelayMillis,
+                    TimeUnit.MILLISECONDS);
+            schedulingResult.addListener(
+                () -> {
+                  try {
+                    schedulingResult.get();
+                  } catch (ExecutionException e) {
+                    inputStream.setException(e.getCause());
+                  } catch (InterruptedException e) {
+                    inputStream.setException(e);
+                  }
+                },
+                MoreExecutors.directExecutor());
+          } catch (RejectedExecutionException e) {
+            inputStream.setException(e);
+          }
         }
       }
 

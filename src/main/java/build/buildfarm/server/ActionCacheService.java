@@ -21,14 +21,20 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import io.grpc.Status;
-import io.grpc.StatusException;
+import io.grpc.Status.Code;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
+import java.util.logging.Logger;
 
 public class ActionCacheService extends ActionCacheGrpc.ActionCacheImplBase {
-  private final Instances instances;
+  static final Logger logger = Logger.getLogger(ActionCacheService.class.getName());
 
-  public ActionCacheService(Instances instances) {
+  private final Instances instances;
+  private final Runnable onRequest;
+
+  public ActionCacheService(Instances instances, Runnable onRequest) {
     this.instances = instances;
+    this.onRequest = onRequest;
   }
 
   @Override
@@ -38,20 +44,27 @@ public class ActionCacheService extends ActionCacheGrpc.ActionCacheImplBase {
     Instance instance;
     try {
       instance = instances.get(request.getInstanceName());
-    } catch (InstanceNotFoundException ex) {
-      responseObserver.onError(BuildFarmInstances.toStatusException(ex));
+    } catch (InstanceNotFoundException e) {
+      responseObserver.onError(BuildFarmInstances.toStatusException(e));
       return;
     }
 
-    ActionResult actionResult = instance.getActionResult(
-        DigestUtil.asActionKey(request.getActionDigest()));
-    if (actionResult == null) {
-      responseObserver.onError(new StatusException(Status.NOT_FOUND));
-      return;
+    try {
+      ActionResult actionResult = instance.getActionResult(
+          DigestUtil.asActionKey(request.getActionDigest()));
+      if (actionResult == null) {
+        responseObserver.onError(Status.NOT_FOUND.asException());
+      } else {
+        onRequest.run();
+        responseObserver.onNext(actionResult);
+        responseObserver.onCompleted();
+      }
+    } catch (StatusRuntimeException e) {
+      Status status = Status.fromThrowable(e);
+      if (status.getCode() != Code.CANCELLED) {
+        responseObserver.onError(status.asException());
+      }
     }
-
-    responseObserver.onNext(actionResult);
-    responseObserver.onCompleted();
   }
 
   @Override
@@ -61,8 +74,8 @@ public class ActionCacheService extends ActionCacheGrpc.ActionCacheImplBase {
     Instance instance;
     try {
       instance = instances.get(request.getInstanceName());
-    } catch (InstanceNotFoundException ex) {
-      responseObserver.onError(BuildFarmInstances.toStatusException(ex));
+    } catch (InstanceNotFoundException e) {
+      responseObserver.onError(BuildFarmInstances.toStatusException(e));
       return;
     }
 
