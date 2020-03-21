@@ -536,7 +536,9 @@ public class Worker {
           }
         };
         while (!dedupMatchListener.getMatched()) {
-          operationQueueInstance.match(getPlatform(), dedupMatchListener);
+          Platform platform = getPlatform();
+          logger.fine(String.format("Attempting to match against platform %s", platform));
+          operationQueueInstance.match(platform, dedupMatchListener);
         }
       }
 

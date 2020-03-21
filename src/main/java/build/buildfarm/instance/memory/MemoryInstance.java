@@ -706,6 +706,7 @@ public class MemoryInstance extends AbstractServerInstance {
     boolean matched = false;
     while (!matched && !queuedOperations.isEmpty()) {
       Operation operation = queuedOperations.remove(0);
+      logger.fine(String.format("Attempting to match operation %s", operation));
       ExecuteOperationMetadata metadata = expectExecuteOperationMetadata(operation);
       Preconditions.checkState(metadata != null, "metadata not found");
 
@@ -763,13 +764,16 @@ public class MemoryInstance extends AbstractServerInstance {
       }
     }
     for (Operation operation : rejectedOperations.build()) {
+      logger.fine(String.format("Requeuing rejected operation %s", operation));
       requeueOperation(operation);
     }
     if (!matched) {
       synchronized(workers) {
         listener.setOnCancelHandler(() -> removeWorker(listener));
         listener.onWaitStart();
-        workers.add(new Worker(platform, listener));
+        Worker worker = new Worker(platform, listener);
+        logger.fine(String.format("Starting new Worker for unmatched platform %s: %s", platform, worker));
+        workers.add(worker);
       }
     }
   }

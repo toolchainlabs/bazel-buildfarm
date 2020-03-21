@@ -189,6 +189,7 @@ public class ExecutionService extends ExecutionGrpc.ExecutionImplBase {
   @Override
   public void execute(
       ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+    logger.fine(String.format("Dispatching execute request %s", request));
     Instance instance;
     try {
       instance = instances.get(request.getInstanceName());
@@ -196,7 +197,7 @@ public class ExecutionService extends ExecutionGrpc.ExecutionImplBase {
       responseObserver.onError(BuildFarmInstances.toStatusException(e));
       return;
     }
-
+    logger.fine(String.format("... to instance %s", instance));
     ServerCallStreamObserver<Operation> serverCallStreamObserver =
         (ServerCallStreamObserver<Operation>) responseObserver;
     try {

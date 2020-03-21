@@ -113,6 +113,7 @@ public final class Actions {
         return false;
       }
     }
+    logger.fine(String.format("Requirements %s matched by %s", requirements, provider));
     return true;
   }
 }
