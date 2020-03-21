@@ -65,6 +65,7 @@ import build.buildfarm.v1test.QueuedOperationMetadata;
 import build.buildfarm.v1test.WorkerConfig;
 import build.buildfarm.worker.CASFileCache;
 import build.buildfarm.worker.ExecuteActionStage;
+import build.buildfarm.worker.ExecutionPolicies;
 import build.buildfarm.worker.InputFetchStage;
 import build.buildfarm.worker.MatchStage;
 import build.buildfarm.worker.OutputDirectory;
@@ -127,6 +128,7 @@ public class Worker {
   private final Instance operationQueueInstance;
   private final ByteStreamUploader uploader;
   private final WorkerConfig config;
+  private final Platform platform;
   private final Path root;
   private final CASFileCache fileCache;
   private final Map<Path, Iterable<Path>> rootInputFiles = new ConcurrentHashMap<>();
@@ -242,6 +244,9 @@ public class Worker {
         casInstance.getDigestUtil(),
         newDirectExecutorService(),
         directExecutor());
+
+    platform = ExecutionPolicies.adjustPlatformProperties(config.getPlatform(), config.getExecutionPoliciesList());
+    logger.fine(String.format("%s will match against platform %s", this, platform));
   }
 
   private void fetchInputs(
@@ -397,16 +402,6 @@ public class Worker {
         uploader);
   }
 
-  private Platform getPlatform() {
-    Platform.Builder platform = config.getPlatform().toBuilder();
-    for (ExecutionPolicy policy : config.getExecutionPoliciesList()) {
-      platform.addPropertiesBuilder()
-        .setName("execution-policy")
-        .setValue(policy.getName());
-    }
-    return platform.build();
-  }
-
   public void start() throws InterruptedException {
     try {
       Files.createDirectories(root);
@@ -536,8 +531,6 @@ public class Worker {
           }
         };
         while (!dedupMatchListener.getMatched()) {
-          Platform platform = getPlatform();
-          logger.fine(String.format("Attempting to match against platform %s", platform));
           operationQueueInstance.match(platform, dedupMatchListener);
         }
       }

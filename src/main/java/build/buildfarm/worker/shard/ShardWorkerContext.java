@@ -49,6 +49,7 @@ import build.buildfarm.common.grpc.Retrier;
 import build.buildfarm.common.grpc.Retrier.Backoff;
 import build.buildfarm.instance.Instance;
 import build.buildfarm.instance.Instance.MatchListener;
+import build.buildfarm.worker.ExecutionPolicies;
 import build.buildfarm.worker.RetryingMatchListener;
 import build.buildfarm.worker.WorkerContext;
 import build.buildfarm.v1test.ExecuteEntry;
@@ -113,7 +114,7 @@ class ShardWorkerContext implements WorkerContext {
   private final Duration defaultActionTimeout;
   private final Duration maximumActionTimeout;
   private final Map<String, QueueEntry> activeOperations = Maps.newConcurrentMap();
-  
+
   ShardWorkerContext(
       String name,
       Platform platform,
@@ -132,7 +133,6 @@ class ShardWorkerContext implements WorkerContext {
       Duration defaultActionTimeout,
       Duration maximumActionTimeout) {
     this.name = name;
-    this.platform = platform;
     this.operationPollPeriod = operationPollPeriod;
     this.operationPoller = operationPoller;
     this.inlineContentLimit = inlineContentLimit;
@@ -147,6 +147,9 @@ class ShardWorkerContext implements WorkerContext {
     this.deadlineAfterUnits = deadlineAfterUnits;
     this.defaultActionTimeout = defaultActionTimeout;
     this.maximumActionTimeout = maximumActionTimeout;
+
+    this.platform =  ExecutionPolicies.adjustPlatformProperties(platform, policies);
+    logger.fine(String.format("%s will match against platform %s", this, platform));
   }
 
   private static Retrier createBackplaneRetrier() {
