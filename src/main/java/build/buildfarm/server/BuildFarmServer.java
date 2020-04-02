@@ -20,6 +20,7 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.logging.Level.FINE;
 import static java.util.logging.Level.SEVERE;
 
+import build.buildfarm.common.grpc.StaticAuthInterceptor;
 import build.buildfarm.common.grpc.TracingMetadataUtils.ServerHeadersInterceptor;
 import build.buildfarm.v1test.BuildFarmServerConfig;
 import com.google.common.io.ByteStreams;
@@ -28,6 +29,7 @@ import com.google.protobuf.TextFormat;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.ServerInterceptor;
+import io.grpc.ServerInterceptors;
 import io.grpc.health.v1.HealthCheckResponse.ServingStatus;
 import io.grpc.services.HealthStatusManager;
 import io.grpc.util.TransmitStatusRuntimeExceptionInterceptor;
@@ -38,6 +40,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -73,8 +76,14 @@ public class BuildFarmServer {
     healthStatusManager = new HealthStatusManager();
     actionCacheRequestCounter = new ActionCacheRequestCounter(ActionCacheService.logger, Duration.ofSeconds(10));
 
+    Collection<String> tokens = Collections.emptyList();
+    if (config.getAuth().hasStatic()) {
+      tokens = config.getAuth().getStatic().getTokensList();
+    }
+
     ServerInterceptor headersInterceptor = new ServerHeadersInterceptor();
-    server = serverBuilder
+
+    serverBuilder
         .addService(healthStatusManager.getHealthService())
         .addService(new ActionCacheService(instances, actionCacheRequestCounter::increment))
         .addService(new CapabilitiesService(instances))
@@ -89,10 +98,17 @@ public class BuildFarmServer {
             TimeUnit.SECONDS,
             keepaliveScheduler))
         .addService(new OperationQueueService(instances))
-        .addService(new OperationsService(instances))
+        .addService(new OperationsService(instances));
+
+    if (!tokens.isEmpty()) {
+        serverBuilder.intercept(new StaticAuthInterceptor(tokens));
+    }
+
+    serverBuilder
         .intercept(TransmitStatusRuntimeExceptionInterceptor.instance())
-        .intercept(headersInterceptor)
-        .build();
+        .intercept(headersInterceptor);
+
+    server = serverBuilder.build();
 
     logger.info(String.format("%s initialized", session));
   }
