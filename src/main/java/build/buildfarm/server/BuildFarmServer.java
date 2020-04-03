@@ -40,6 +40,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -68,6 +69,31 @@ public class BuildFarmServer {
     this(session, ServerBuilder.forPort(config.getPort()), config);
   }
 
+  private Collection<String> getAuthTokens(BuildFarmServerConfig config) throws ConfigurationException {
+    Collection<String> tokens = new ArrayList<>();
+
+    if (config.getAuth().hasStatic()) {
+      tokens.addAll(config.getAuth().getStatic().getTokensList());
+
+      String tokensFile = config.getAuth().getStatic().getTokensFile();
+      if (tokensFile != null && tokensFile != "") {
+        try {
+          List<String> lines = Files.readAllLines(Path.of(tokensFile));
+          for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("#") || trimmed.isEmpty())
+              continue;
+            tokens.add(line);
+          }
+        } catch (IOException ex) {
+          throw new ConfigurationException("Unable to read from tokens file: " + ex.getMessage());
+        }
+      }
+    }
+
+    return tokens;
+  }
+
   public BuildFarmServer(String session, ServerBuilder<?> serverBuilder, BuildFarmServerConfig config)
       throws InterruptedException, ConfigurationException {
     String defaultInstanceName = config.getDefaultInstanceName();
@@ -76,10 +102,7 @@ public class BuildFarmServer {
     healthStatusManager = new HealthStatusManager();
     actionCacheRequestCounter = new ActionCacheRequestCounter(ActionCacheService.logger, Duration.ofSeconds(10));
 
-    Collection<String> tokens = Collections.emptyList();
-    if (config.getAuth().hasStatic()) {
-      tokens = config.getAuth().getStatic().getTokensList();
-    }
+    Collection<String> tokens = getAuthTokens(config);
 
     ServerInterceptor headersInterceptor = new ServerHeadersInterceptor();
 

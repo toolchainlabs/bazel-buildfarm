@@ -441,6 +441,7 @@ message AuthConfig {
 
 message StaticAuthConfig {
   repeated string tokens = 1;
+  string tokens_file = 2;
 }
 
 enum CASInsertionPolicy {
