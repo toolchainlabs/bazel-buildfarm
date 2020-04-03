@@ -159,7 +159,7 @@ public class AuthenticatedBuildFarmServerTest {
         }
 
         Metadata headers = new Metadata();
-        headers.put(StaticAuthInterceptor.AUTHORIZATION_METADATA_KEY, String.format("%s%s", StaticAuthInterceptor.AUTH_TYPE_PREFIX, AUTH_TOKEN));
+        headers.put(Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER), String.format("Bearer %s", AUTH_TOKEN));
         ClientInterceptor interceptor = MetadataUtils.newAttachHeadersInterceptor(headers);
         Channel authenticatedChannel = ClientInterceptors.intercept(inProcessChannel, interceptor);
 

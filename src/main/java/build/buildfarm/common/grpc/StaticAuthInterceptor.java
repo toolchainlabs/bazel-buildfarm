@@ -14,7 +14,7 @@ import java.util.Set;
  * https://github.com/grpc/grpc-java/tree/master/examples/example-jwt-auth/src/main/java/io/grpc/examples/jwtauth
  */
 public class StaticAuthInterceptor implements ServerInterceptor {
-    public static final Metadata.Key<String> AUTHORIZATION_METADATA_KEY = Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER);
+    public static final Metadata.Key<String> AUTHORIZATION_METADATA_KEY = Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER);
     public static final String AUTH_TYPE_PREFIX = "Bearer ";
 
     private final Set<String> tokensSet;
