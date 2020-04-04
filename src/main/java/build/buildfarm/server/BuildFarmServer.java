@@ -20,16 +20,13 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.logging.Level.FINE;
 import static java.util.logging.Level.SEVERE;
 
-import build.buildfarm.common.grpc.StaticAuthInterceptor;
 import build.buildfarm.common.grpc.TracingMetadataUtils.ServerHeadersInterceptor;
 import build.buildfarm.v1test.BuildFarmServerConfig;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.TextFormat;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.ServerInterceptor;
-import io.grpc.ServerInterceptors;
 import io.grpc.health.v1.HealthCheckResponse.ServingStatus;
 import io.grpc.services.HealthStatusManager;
 import io.grpc.util.TransmitStatusRuntimeExceptionInterceptor;
@@ -40,7 +37,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -48,6 +44,7 @@ import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 import javax.naming.ConfigurationException;
 
 public class BuildFarmServer {
@@ -69,29 +66,23 @@ public class BuildFarmServer {
     this(session, ServerBuilder.forPort(config.getPort()), config);
   }
 
-  private Collection<String> getAuthTokens(BuildFarmServerConfig config) throws ConfigurationException {
-    Collection<String> tokens = new ArrayList<>();
+  @Nullable
+  protected String getAuthKeyFilename() {
+    return System.getenv("BUILDFARM_JWT_KEY_PATH");
+  }
 
-    if (config.getAuth().hasStatic()) {
-      tokens.addAll(config.getAuth().getStatic().getTokensList());
-
-      String tokensFile = config.getAuth().getStatic().getTokensFile();
-      if (tokensFile != null && tokensFile != "") {
-        try {
-          List<String> lines = Files.readAllLines(Path.of(tokensFile));
-          for (String line : lines) {
-            String trimmed = line.trim();
-            if (trimmed.startsWith("#") || trimmed.isEmpty())
-              continue;
-            tokens.add(line);
-          }
-        } catch (IOException ex) {
-          throw new ConfigurationException("Unable to read from tokens file: " + ex.getMessage());
-        }
-      }
+  protected ServerInterceptor getAuthInterceptor() throws ConfigurationException {
+    String keyPath = getAuthKeyFilename();
+    if (keyPath == null) {
+      return null;
     }
 
-    return tokens;
+    try {
+      byte[] key = Files.readAllBytes(Path.of(keyPath));
+      return new JWTAuthHeaderInterceptor(key);
+    } catch (IOException ex) {
+      throw new ConfigurationException(String.format("Unable to read JWT key from %s: %s", keyPath, ex.getMessage()));
+    }
   }
 
   public BuildFarmServer(String session, ServerBuilder<?> serverBuilder, BuildFarmServerConfig config)
@@ -101,8 +92,6 @@ public class BuildFarmServer {
 
     healthStatusManager = new HealthStatusManager();
     actionCacheRequestCounter = new ActionCacheRequestCounter(ActionCacheService.logger, Duration.ofSeconds(10));
-
-    Collection<String> tokens = getAuthTokens(config);
 
     ServerInterceptor headersInterceptor = new ServerHeadersInterceptor();
 
@@ -123,8 +112,9 @@ public class BuildFarmServer {
         .addService(new OperationQueueService(instances))
         .addService(new OperationsService(instances));
 
-    if (!tokens.isEmpty()) {
-        serverBuilder.intercept(new StaticAuthInterceptor(tokens));
+    ServerInterceptor authHeaderInterceptor = getAuthInterceptor();
+    if (authHeaderInterceptor != null) {
+        serverBuilder.intercept(authHeaderInterceptor);
     }
 
     serverBuilder

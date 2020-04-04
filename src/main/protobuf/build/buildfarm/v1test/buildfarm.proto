@@ -62,9 +62,6 @@ message BuildFarmServerConfig {
   string aws_namespace = 4;
 
   int32 execute_keepalive_after_seconds = 5;
-
-
-  AuthConfig auth = 1000;
 }
 
 message MemoryCASConfig {
@@ -431,17 +428,6 @@ message InstanceConfig {
     MemoryInstanceConfig memory_instance_config = 3;
     ShardInstanceConfig shard_instance_config = 4;
   }
-}
-
-message AuthConfig {
-  oneof type {
-    StaticAuthConfig static = 1;
-  }
-}
-
-message StaticAuthConfig {
-  repeated string tokens = 1;
-  string tokens_file = 2;
 }
 
 enum CASInsertionPolicy {
