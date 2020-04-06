@@ -71,12 +71,7 @@ public class BuildFarmServer {
     return System.getenv("BUILDFARM_JWT_KEY_PATH");
   }
 
-  protected ServerInterceptor getAuthInterceptor() throws ConfigurationException {
-    String keyPath = getAuthKeyFilename();
-    if (keyPath == null) {
-      return null;
-    }
-
+  protected ServerInterceptor getAuthInterceptor(String keyPath) throws ConfigurationException {
     try {
       byte[] key = Files.readAllBytes(Path.of(keyPath));
       return new JWTAuthHeaderInterceptor(key);
@@ -112,9 +107,10 @@ public class BuildFarmServer {
         .addService(new OperationQueueService(instances))
         .addService(new OperationsService(instances));
 
-    ServerInterceptor authHeaderInterceptor = getAuthInterceptor();
-    if (authHeaderInterceptor != null) {
-        serverBuilder.intercept(authHeaderInterceptor);
+    String keyPath = getAuthKeyFilename();
+    if (keyPath != null) {
+      ServerInterceptor authHeaderInterceptor = getAuthInterceptor(keyPath);
+      serverBuilder.intercept(authHeaderInterceptor);
     }
 
     serverBuilder
