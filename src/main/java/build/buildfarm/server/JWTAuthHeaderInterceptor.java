@@ -43,8 +43,8 @@ public class JWTAuthHeaderInterceptor implements ServerInterceptor {
                     Jws<Claims> claims = parser.parseClaimsJws(token);
                     return next.startCall(call, headers);
                 } catch (JwtException ex) {
-                    logger.info(String.format("Authentication error: %s", ex.getMessage()));
-                    // fall-through to code to return unauthenicated status
+                    logger.warning(String.format("Authentication error: %s", ex.getMessage()));
+                    // fall-through to code to return unauthenticated status
                 }
             }
         }
