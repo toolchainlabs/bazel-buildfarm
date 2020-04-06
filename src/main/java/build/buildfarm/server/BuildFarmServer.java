@@ -22,7 +22,6 @@ import static java.util.logging.Level.SEVERE;
 
 import build.buildfarm.common.grpc.TracingMetadataUtils.ServerHeadersInterceptor;
 import build.buildfarm.v1test.BuildFarmServerConfig;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.TextFormat;
 import io.grpc.Server;
@@ -38,12 +37,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 import javax.naming.ConfigurationException;
 
 public class BuildFarmServer {
@@ -65,6 +66,20 @@ public class BuildFarmServer {
     this(session, ServerBuilder.forPort(config.getPort()), config);
   }
 
+  @Nullable
+  protected String getAuthKeyFilename() {
+    return System.getenv("BUILDFARM_JWT_KEY_PATH");
+  }
+
+  protected ServerInterceptor getAuthInterceptor(String keyPath) throws ConfigurationException {
+    try {
+      byte[] key = Files.readAllBytes(Path.of(keyPath));
+      return new JWTAuthHeaderInterceptor(key);
+    } catch (IOException ex) {
+      throw new ConfigurationException(String.format("Unable to read JWT key from %s: %s", keyPath, ex.getMessage()));
+    }
+  }
+
   public BuildFarmServer(String session, ServerBuilder<?> serverBuilder, BuildFarmServerConfig config)
       throws InterruptedException, ConfigurationException {
     String defaultInstanceName = config.getDefaultInstanceName();
@@ -74,7 +89,8 @@ public class BuildFarmServer {
     actionCacheRequestCounter = new ActionCacheRequestCounter(ActionCacheService.logger, Duration.ofSeconds(10));
 
     ServerInterceptor headersInterceptor = new ServerHeadersInterceptor();
-    server = serverBuilder
+
+    serverBuilder
         .addService(healthStatusManager.getHealthService())
         .addService(new ActionCacheService(instances, actionCacheRequestCounter::increment))
         .addService(new CapabilitiesService(instances))
@@ -89,10 +105,19 @@ public class BuildFarmServer {
             TimeUnit.SECONDS,
             keepaliveScheduler))
         .addService(new OperationQueueService(instances))
-        .addService(new OperationsService(instances))
+        .addService(new OperationsService(instances));
+
+    String keyPath = getAuthKeyFilename();
+    if (keyPath != null) {
+      ServerInterceptor authHeaderInterceptor = getAuthInterceptor(keyPath);
+      serverBuilder.intercept(authHeaderInterceptor);
+    }
+
+    serverBuilder
         .intercept(TransmitStatusRuntimeExceptionInterceptor.instance())
-        .intercept(headersInterceptor)
-        .build();
+        .intercept(headersInterceptor);
+
+    server = serverBuilder.build();
 
     logger.info(String.format("%s initialized", session));
   }

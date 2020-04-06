@@ -71,6 +71,17 @@ dependencies:
       lang: java
       version: "0.44"
 
+  io.jsonwebtoken:
+    jjwt-api:
+      lang: java
+      version: "0.11.1"
+    jjwt-impl:
+      lang: java
+      version: "0.11.1"
+    jjwt-gson:
+      lang: java
+      version: "0.11.1"
+
   io.netty:
     netty:
       lang: java
