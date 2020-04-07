@@ -18,8 +18,8 @@ import java.util.Date;
 // Adapted from https://github.com/grpc/grpc-java/blob/master/examples/example-jwt-auth/src/main/java/io/grpc/examples/jwtauth/JwtCredential.java
 
 /**
- * CallCredentials implementation, which carries the JWT value that will be propagated to the
- * server in the request metadata with the "Authorization" key and the "Bearer" prefix.
+ * A ClientInterceptor to add JWT credentials to outgoing gRPC requests. This is used to authenticate the worker
+ * to the Buildfarm server.
  */
 public class JWTClientInterceptor implements ClientInterceptor {
     private final byte[] key;
