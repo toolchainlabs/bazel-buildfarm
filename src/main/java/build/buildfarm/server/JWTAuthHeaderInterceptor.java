@@ -2,6 +2,8 @@ package build.buildfarm.server;
 
 import java.util.logging.Logger;
 
+import build.buildfarm.common.grpc.JWTUtil;
+
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
@@ -24,9 +26,6 @@ import io.jsonwebtoken.Jwts;
 public class JWTAuthHeaderInterceptor implements ServerInterceptor {
     private static final Logger logger = Logger.getLogger(JWTAuthHeaderInterceptor.class.getName());
 
-    public static final Metadata.Key<String> AUTHORIZATION_METADATA_KEY = Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER);
-    public static final String AUTH_TYPE_PREFIX = "Bearer ";
-
     private final JwtParser parser;
 
     public JWTAuthHeaderInterceptor(byte[] key) {
@@ -35,10 +34,10 @@ public class JWTAuthHeaderInterceptor implements ServerInterceptor {
 
     @Override
     public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
-        String authHeader = headers.get(AUTHORIZATION_METADATA_KEY);
+        String authHeader = headers.get(JWTUtil.AUTHORIZATION_METADATA_KEY);
         if (authHeader != null) {
-            if (authHeader.startsWith(AUTH_TYPE_PREFIX)) {
-                String token = authHeader.substring(AUTH_TYPE_PREFIX.length());
+            if (authHeader.startsWith(JWTUtil.AUTH_TYPE_PREFIX)) {
+                String token = authHeader.substring(JWTUtil.AUTH_TYPE_PREFIX.length());
                 try {
                     Jws<Claims> claims = parser.parseClaimsJws(token);
                     return next.startCall(call, headers);

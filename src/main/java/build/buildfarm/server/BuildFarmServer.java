@@ -20,6 +20,7 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.logging.Level.FINE;
 import static java.util.logging.Level.SEVERE;
 
+import build.buildfarm.common.grpc.JWTUtil;
 import build.buildfarm.common.grpc.TracingMetadataUtils.ServerHeadersInterceptor;
 import build.buildfarm.v1test.BuildFarmServerConfig;
 import com.google.devtools.common.options.OptionsParser;
@@ -37,7 +38,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -68,7 +68,7 @@ public class BuildFarmServer {
 
   @Nullable
   protected String getAuthKeyFilename() {
-    return System.getenv("BUILDFARM_JWT_KEY_PATH");
+    return System.getenv(JWTUtil.KEY_ENV_VAR_NAME);
   }
 
   protected ServerInterceptor getAuthInterceptor(String keyPath) throws ConfigurationException {
