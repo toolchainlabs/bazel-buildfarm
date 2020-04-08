@@ -62,6 +62,7 @@ import build.buildfarm.v1test.WorkerConfig;
 import build.buildfarm.worker.CASFileCache;
 import build.buildfarm.worker.ExecuteActionStage;
 import build.buildfarm.worker.InputFetchStage;
+import build.buildfarm.common.grpc.JWTClientInterceptor;
 import build.buildfarm.worker.MatchStage;
 import build.buildfarm.worker.OutputDirectory;
 import build.buildfarm.worker.Pipeline;
@@ -74,10 +75,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.common.options.OptionsParser;
@@ -87,6 +86,7 @@ import com.google.protobuf.Duration;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.TextFormat;
 import io.grpc.Channel;
+import io.grpc.ClientInterceptor;
 import io.grpc.Deadline;
 import io.grpc.ManagedChannel;
 import io.grpc.netty.NegotiationType;
@@ -94,7 +94,6 @@ import io.grpc.netty.NettyChannelBuilder;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -105,9 +104,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Predicate;
 import java.util.logging.Logger;
 import javax.naming.ConfigurationException;
 
@@ -132,6 +129,12 @@ public class Worker {
     NettyChannelBuilder builder =
         NettyChannelBuilder.forTarget(target)
             .negotiationType(NegotiationType.PLAINTEXT);
+
+    ClientInterceptor authInterceptor = JWTClientInterceptor.instance();
+    if (authInterceptor != null) {
+      builder.intercept(authInterceptor);
+    }
+
     return builder.build();
   }
 

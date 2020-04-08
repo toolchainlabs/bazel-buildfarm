@@ -25,14 +25,14 @@ import build.buildfarm.common.Write;
 import build.buildfarm.instance.stub.ByteStreamUploader;
 import build.buildfarm.v1test.ContentAddressableStorageConfig;
 import build.buildfarm.v1test.GrpcCASConfig;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import build.buildfarm.common.grpc.JWTClientInterceptor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.protobuf.ByteString;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.Channel;
+import io.grpc.ClientInterceptor;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
 import java.io.IOException;
@@ -40,14 +40,18 @@ import java.io.InputStream;
 import java.nio.file.NoSuchFileException;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 public final class ContentAddressableStorages {
   private static Channel createChannel(String target) {
     NettyChannelBuilder builder =
         NettyChannelBuilder.forTarget(target)
             .negotiationType(NegotiationType.PLAINTEXT);
+
+    ClientInterceptor authInterceptor = JWTClientInterceptor.instance();
+    if (authInterceptor != null) {
+      builder.intercept(authInterceptor);
+    }
+
     return builder.build();
   }
 
